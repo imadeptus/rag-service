@@ -1,0 +1,7 @@
+{"question": "How do I rotate the API token for the payments integration?", "relevant_doc_ids": ["runbook-payments"]}
+{"question": "What is the SLA for incident response?", "relevant_doc_ids": ["oncall-policy"]}
+{"question": "Which port does the staging database listen on?", "relevant_doc_ids": ["runbook-payments"]}
+{"question": "Who approves production deploys?", "relevant_doc_ids": ["deploy-process"]}
+{"question": "What happens when a webhook delivery fails?", "relevant_doc_ids": ["runbook-payments"]}
+{"question": "How long do we keep audit logs?", "relevant_doc_ids": ["oncall-policy"]}
+{"question": "Can I deploy on Friday evening?", "relevant_doc_ids": ["deploy-process"]}

@@ -47,11 +47,11 @@ def chunk_document(doc_id: str, text: str, chunk_size: int = 700, overlap: int =
             continue
         if buf:
             chunks.append(Chunk(doc_id, f"{doc_id}#{len(chunks)}", buf, len(chunks)))
-            tail = buf[-overlap:] if overlap else ""
-            buf = f"{tail}\n\n{unit}" if tail else unit
-            # If even with tail it overflows, drop the tail
-            if len(buf) > chunk_size:
-                buf = unit
+            separator = "\n\n"
+            available = max(0, chunk_size - len(unit) - len(separator))
+            tail_length = min(overlap, available)
+            tail = buf[-tail_length:] if tail_length else ""
+            buf = f"{tail}{separator}{unit}" if tail else unit
         else:
             buf = unit
     if buf:

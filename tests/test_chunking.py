@@ -40,3 +40,16 @@ def test_overlap_must_be_smaller_than_chunk_size():
     except ValueError:
         return
     raise AssertionError("expected ValueError for overlap >= chunk_size")
+
+
+def test_adjacent_chunks_preserve_maximum_overlap_for_eight_paragraphs():
+    paragraphs = [f"paragraph-{index} " + chr(97 + index) * 115 for index in range(8)]
+    chunks = chunk_document("doc", "\n\n".join(paragraphs), chunk_size=140, overlap=30)
+
+    assert len(chunks) >= 4
+    for previous, current in zip(chunks, chunks[1:]):
+        max_tail = min(30, 140 - len(current.text.split("\n\n")[-1]) - 2)
+        expected_tail = previous.text[-max_tail:] if max_tail > 0 else ""
+        assert expected_tail
+        assert current.text.startswith(expected_tail)
+        assert len(current.text) <= 140

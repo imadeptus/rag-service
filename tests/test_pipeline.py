@@ -88,3 +88,7 @@ def test_irrelevant_question_abstains_without_llm_call():
     assert answer.usage.completion_tokens == 0
     assert answer.usage.cost_usd == 0.0
     assert llm.calls == 0
+    assert pipe.tracker.requests == 0
+    assert pipe.tracker.total.prompt_tokens == 0
+    assert pipe.tracker.total.completion_tokens == 0
+    assert pipe.tracker.total.cost_usd == 0.0

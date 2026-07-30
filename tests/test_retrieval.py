@@ -62,3 +62,9 @@ def test_numeric_token_matches_despite_trailing_punctuation():
     result = retriever.retrieve("5433", top_k=1)
     assert result[0].chunk.doc_id == "port"
     assert "bm25" in result[0].sources
+
+
+def test_zero_score_vector_results_are_excluded():
+    retriever = make_retriever({"known": "alpha beta gamma"})
+
+    assert retriever.retrieve("offcorpus987654321", top_k=3) == []

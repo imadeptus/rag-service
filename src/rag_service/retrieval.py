@@ -81,7 +81,7 @@ class HybridRetriever:
 
     def _vector_ranking(self, query: str, top_k: int) -> list[Chunk]:
         qvec = self.embedder.embed([query])[0]
-        return [sc.chunk for sc in self.store.search(qvec, top_k)]
+        return [sc.chunk for sc in self.store.search(qvec, top_k) if sc.score > 0]
 
     def retrieve(self, query: str, top_k: int = 5) -> list[RetrievedChunk]:
         pool = max(top_k * 2, 10)

@@ -1,9 +1,19 @@
 from rag_service.config import Settings
+from rag_service.llm import LLMResult, Usage
 from rag_service.pipeline import RagPipeline
 
 
 def make_pipeline() -> RagPipeline:
     return RagPipeline(Settings())  # fake providers, in-memory store
+
+
+class RecordingLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, system: str, user: str) -> LLMResult:
+        self.calls += 1
+        return LLMResult("unexpected", Usage(1, 1, 1.0))
 
 
 def test_ingest_returns_chunk_count():
@@ -62,3 +72,19 @@ def test_reingest_with_empty_document_removes_stale_lexical_results():
 
     assert pipe.store.count() == 0
     assert pipe.retriever.retrieve("obsolete", top_k=5) == []
+
+
+def test_irrelevant_question_abstains_without_llm_call():
+    llm = RecordingLLM()
+    pipe = RagPipeline(Settings(), llm=llm)
+    pipe.ingest("known", "alpha beta gamma")
+
+    answer = pipe.ask("offcorpus987654321")
+
+    assert answer.text == "I don't know based on the provided documents."
+    assert answer.chunks == []
+    assert answer.citations == []
+    assert answer.usage.prompt_tokens == 0
+    assert answer.usage.completion_tokens == 0
+    assert answer.usage.cost_usd == 0.0
+    assert llm.calls == 0

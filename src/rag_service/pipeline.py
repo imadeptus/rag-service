@@ -15,6 +15,7 @@ SYSTEM_PROMPT = (
     "\"I don't know based on the provided documents.\"; cite sources inline as [chunk_id] "
     "after each claim; never invent numbers."
 )
+ABSTAIN_ANSWER = "I don't know based on the provided documents."
 
 
 @dataclass
@@ -50,6 +51,13 @@ class RagPipeline:
     def ask(self, question: str, top_k: int | None = None) -> Answer:
         k = top_k or self.settings.top_k
         retrieved = self.retriever.retrieve(question, k)
+        if not retrieved:
+            return Answer(
+                text=ABSTAIN_ANSWER,
+                citations=[],
+                chunks=[],
+                usage=Usage(prompt_tokens=0, completion_tokens=0, cost_usd=0.0),
+            )
         context = "\n\n".join(f"[{r.chunk.chunk_id}] {r.chunk.text}" for r in retrieved)
         user_prompt = f"Context:\n{context}\n\nQuestion: {question}"
         result = self.llm.complete(SYSTEM_PROMPT, user_prompt)

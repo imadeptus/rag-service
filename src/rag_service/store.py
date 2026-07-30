@@ -21,6 +21,8 @@ class ScoredChunk:
 class VectorStore(Protocol):
     def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None: ...
 
+    def delete_doc(self, doc_id: str) -> None: ...
+
     def search(self, vector: list[float], top_k: int) -> list[ScoredChunk]: ...
 
     def all_chunks(self) -> list[Chunk]: ...
@@ -44,6 +46,13 @@ class InMemoryStore:
             raise ValueError("chunks and vectors length mismatch")
         for chunk, vec in zip(chunks, vectors):
             self._items[chunk.chunk_id] = (chunk, vec)
+
+    def delete_doc(self, doc_id: str) -> None:
+        self._items = {
+            chunk_id: item
+            for chunk_id, item in self._items.items()
+            if item[0].doc_id != doc_id
+        }
 
     def search(self, vector: list[float], top_k: int) -> list[ScoredChunk]:
         scored = [ScoredChunk(c, _cosine(vector, v)) for c, v in self._items.values()]
@@ -83,6 +92,18 @@ class QdrantStore:
             for c, v in zip(chunks, vectors)
         ]
         self.client.upsert(self.collection, points)
+
+    def delete_doc(self, doc_id: str) -> None:
+        from qdrant_client.models import FieldCondition, Filter, FilterSelector, MatchValue
+
+        self.client.delete(
+            collection_name=self.collection,
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_id))]
+                )
+            ),
+        )
 
     def search(self, vector: list[float], top_k: int) -> list[ScoredChunk]:
         hits = self.client.query_points(self.collection, query=vector, limit=top_k).points

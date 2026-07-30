@@ -37,8 +37,10 @@ class RagPipeline:
         self.retriever = HybridRetriever(self.store, self.embedder)
 
     def ingest(self, doc_id: str, text: str) -> int:
+        self.store.delete_doc(doc_id)
         chunks = chunk_document(doc_id, text, self.settings.chunk_size, self.settings.chunk_overlap)
         if not chunks:
+            self.retriever.refresh_lexical_index()
             return 0
         vectors = self.embedder.embed([c.text for c in chunks])
         self.store.upsert(chunks, vectors)

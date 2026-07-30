@@ -38,3 +38,27 @@ def test_reingest_same_doc_does_not_duplicate():
     n2 = pipe.ingest("doc1", "same text")
     assert n1 == n2
     assert pipe.store.count() == n1
+
+
+def test_reingest_replaces_stale_chunks_and_content():
+    pipe = make_pipeline()
+    assert pipe.ingest("doc1", "obsolete " * 1000) >= 10
+
+    new_count = pipe.ingest("doc1", "current content")
+
+    chunks = [chunk for chunk in pipe.store.all_chunks() if chunk.doc_id == "doc1"]
+    assert pipe.store.count() == new_count == 1
+    assert chunks[0].text == "current content"
+    assert all("obsolete" not in chunk.text for chunk in chunks)
+    retrieved = pipe.retriever.retrieve("obsolete", top_k=20)
+    assert all("obsolete" not in result.chunk.text for result in retrieved)
+
+
+def test_reingest_with_empty_document_removes_stale_lexical_results():
+    pipe = make_pipeline()
+    pipe.ingest("doc1", "obsolete content")
+
+    assert pipe.ingest("doc1", "") == 0
+
+    assert pipe.store.count() == 0
+    assert pipe.retriever.retrieve("obsolete", top_k=5) == []

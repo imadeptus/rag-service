@@ -67,8 +67,8 @@ def evaluate(
         "chunks": pipe.store.count(),
         "questions": question_count,
         "k": k,
-        f"hit@{k}": round(hit_rate, 3),
-        "mrr": round(mrr, 3),
+        f"hit@{k}": hit_rate,
+        "mrr": mrr,
         "embedder": type(pipe.embedder).__name__,
         "status": None,
     }

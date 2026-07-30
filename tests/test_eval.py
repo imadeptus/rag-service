@@ -39,3 +39,40 @@ def test_eval_cli_fails_when_quality_misses_thresholds():
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert json.loads(result.stdout)["status"] == "FAIL"
+
+
+def test_eval_threshold_uses_unrounded_metric(tmp_path: Path):
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "known.md").write_text("alpha beta", encoding="utf-8")
+    golden_path = tmp_path / "golden.jsonl"
+    rows = [
+        {"question": "alpha", "relevant_doc_ids": ["known"]},
+        {"question": "beta", "relevant_doc_ids": ["known"]},
+        {"question": "offcorpus", "relevant_doc_ids": ["missing"]},
+    ]
+    golden_path.write_text(
+        "\n".join(json.dumps(row) for row in rows),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "eval/run_eval.py",
+            "--docs",
+            str(docs_dir),
+            "--golden",
+            str(golden_path),
+            "--k",
+            "1",
+            "--min-hit",
+            "0.667",
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr

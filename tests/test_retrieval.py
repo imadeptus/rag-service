@@ -50,3 +50,15 @@ def test_fake_embedder_is_deterministic():
     v1 = e.embed(["same text"])[0]
     v2 = e.embed(["same text"])[0]
     assert v1 == v2
+
+
+def test_numeric_token_matches_despite_trailing_punctuation():
+    retriever = make_retriever(
+        {
+            "port": "The staging database listens on port 5433.",
+            "other": "Use port 8080.",
+        }
+    )
+    result = retriever.retrieve("5433", top_k=1)
+    assert result[0].chunk.doc_id == "port"
+    assert "bm25" in result[0].sources

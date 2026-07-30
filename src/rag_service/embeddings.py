@@ -12,6 +12,8 @@ import hashlib
 import math
 from typing import Protocol
 
+from .tokenization import tokenize
+
 
 class Embedder(Protocol):
     dim: int
@@ -33,7 +35,7 @@ class FakeEmbedder:
         out: list[list[float]] = []
         for text in texts:
             vec = [0.0] * self.dim
-            for token in text.lower().split():
+            for token in tokenize(text):
                 vec[self._token_index(token)] += 1.0
             norm = math.sqrt(sum(v * v for v in vec)) or 1.0
             out.append([v / norm for v in vec])

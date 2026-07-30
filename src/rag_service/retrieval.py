@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from .chunking import Chunk
 from .embeddings import Embedder
 from .store import VectorStore
+from .tokenization import tokenize
 
 RRF_K = 60
 
@@ -57,10 +58,6 @@ class RetrievedChunk:
     sources: tuple[str, ...]  # which rankers surfaced it: "bm25", "vector"
 
 
-def _tokenize(text: str) -> list[str]:
-    return text.lower().split()
-
-
 class HybridRetriever:
     def __init__(self, store: VectorStore, embedder: Embedder):
         self.store = store
@@ -70,7 +67,7 @@ class HybridRetriever:
 
     def refresh_lexical_index(self) -> None:
         self._bm25_chunks = self.store.all_chunks()
-        corpus = [_tokenize(c.text) for c in self._bm25_chunks]
+        corpus = [tokenize(c.text) for c in self._bm25_chunks]
         self._bm25 = BM25(corpus) if corpus else None
 
     def _bm25_ranking(self, query: str, top_k: int) -> list[Chunk]:
@@ -78,7 +75,7 @@ class HybridRetriever:
             self.refresh_lexical_index()
         if self._bm25 is None:
             return []
-        scores = self._bm25.get_scores(_tokenize(query))
+        scores = self._bm25.get_scores(tokenize(query))
         ranked = sorted(zip(self._bm25_chunks, scores), key=lambda x: x[1], reverse=True)
         return [c for c, s in ranked[:top_k] if s > 0]
 

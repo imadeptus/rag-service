@@ -1,7 +1,15 @@
 {"question": "How do I rotate the API token for the payments integration?", "relevant_doc_ids": ["runbook-payments"]}
 {"question": "What is the SLA for incident response?", "relevant_doc_ids": ["oncall-policy"]}
-{"question": "Which port does the staging database listen on?", "relevant_doc_ids": ["runbook-payments"]}
+{"question": "5433", "relevant_doc_ids": ["runbook-payments"]}
 {"question": "Who approves production deploys?", "relevant_doc_ids": ["deploy-process"]}
 {"question": "What happens when a webhook delivery fails?", "relevant_doc_ids": ["runbook-payments"]}
 {"question": "How long do we keep audit logs?", "relevant_doc_ids": ["oncall-policy"]}
 {"question": "Can I deploy on Friday evening?", "relevant_doc_ids": ["deploy-process"]}
+{"question": "Who receives the incident escalation after the secondary?", "relevant_doc_ids": ["oncall-policy"]}
+{"question": "Which migration pattern is required for irreversible changes?", "relevant_doc_ids": ["deploy-process"]}
+{"question": "How often must service account secrets be rotated?", "relevant_doc_ids": ["security-policy"]}
+{"question": "Who approves the 30-day access review?", "relevant_doc_ids": ["security-policy"]}
+{"question": "How long may a break-glass session remain active?", "relevant_doc_ids": ["security-policy"]}
+{"question": "How many days are daily backups retained?", "relevant_doc_ids": ["data-retention"]}
+{"question": "For how many months are monthly backups retained?", "relevant_doc_ids": ["data-retention"]}
+{"question": "Which ticket records a legal hold exception?", "relevant_doc_ids": ["data-retention"]}

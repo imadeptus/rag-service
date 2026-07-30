@@ -18,7 +18,7 @@ jobs:
         run: pytest -q
         env:
           PYTHONPATH: src
-      - name: Retrieval eval on sample corpus
-        run: python eval/run_eval.py --docs sample_docs --golden eval/golden.jsonl --k 5
+      - name: Run retrieval quality gate
+        run: python eval/run_eval.py --k 3 --min-hit 0.85 --min-mrr 0.7
         env:
           PYTHONPATH: src

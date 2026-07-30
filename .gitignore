@@ -1,8 +1,9 @@
 .venv/
 __pycache__/
-*.pyc
+*.py[cod]
 .env
 .pytest_cache/
 .coverage
+htmlcov/
 dist/
 .worktrees/

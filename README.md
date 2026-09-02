@@ -1,5 +1,7 @@
 # rag-service
 
+[![ci](https://github.com/imadeptus/rag-service/actions/workflows/ci.yml/badge.svg)](https://github.com/imadeptus/rag-service/actions/workflows/ci.yml)
+
 Provider-agnostic RAG service: hybrid retrieval (BM25 + vectors, RRF fusion), pluggable LLM
 providers (DeepSeek / GigaChat / any OpenAI-compatible endpoint), citations, retrieval evals,
 and per-request cost tracking. Fully testable offline — CI needs zero API keys.

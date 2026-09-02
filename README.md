@@ -143,7 +143,7 @@ CI runs two jobs on every push and pull request, both offline and without API ke
 
 | Job | Checks |
 |---|---|
-| `quality` | `ruff check` · `mypy` · `pytest --cov` (gate 75%) · retrieval eval (hit@3 ≥ 0.85, MRR ≥ 0.7) |
+| `quality` | `ruff check` · `mypy` · `pytest --cov` (gate 85%) · retrieval eval (hit@3 ≥ 0.85, MRR ≥ 0.7) |
 | `docker` | image builds, container answers `/health`, `/ingest` and `/ask`, and runs as uid `10001` |
 
 Run the same checks locally:
@@ -158,9 +158,17 @@ builder, and the runtime stage copies only that virtualenv plus the source. It r
 a non-root user and declares a `HEALTHCHECK`, which is what `--wait` and the compose
 `depends_on: service_healthy` rely on.
 
-Coverage sits at ~78%. The uncovered remainder is the real-provider HTTP adapters
-(OpenAI-compatible, GigaChat) and `QdrantStore` — code no offline test exercises.
-Raising the gate means adding `httpx.MockTransport` tests, not relaxing the number.
+Coverage sits at ~88% across 46 offline tests. The provider adapters are exercised
+through `httpx.MockTransport` — request shape, auth headers, usage parsing, cost
+arithmetic and the GigaChat token lifecycle, all without a network. What remains
+uncovered is `QdrantStore`, which needs a running Qdrant; the compose stack covers
+that path instead.
+
+Two tests exist specifically to pin down concurrency. FastAPI runs synchronous
+endpoints in a worker thread pool, so `/ingest` and `/ask` overlap for real: one
+test grows the store while another thread iterates it, and one parks a lexical-index
+rebuild between reading chunks and publishing them. Both fail if the store loses its
+lock or the index goes back to being published as two separate attributes.
 
 ## Roadmap
 

@@ -12,6 +12,8 @@ import hashlib
 import math
 from typing import Protocol
 
+import httpx
+
 from .config import Settings
 from .tokenization import tokenize
 
@@ -51,21 +53,25 @@ class OpenAICompatibleEmbedder:
         model: str,
         dim: int = 1536,
         timeout: float = 30.0,
+        client: httpx.Client | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.dim = dim
         self.timeout = timeout
+        self._client = client
+
+    def _http(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
 
     def embed(self, texts: list[str]) -> list[list[float]]:
-        import httpx  # lazy: only real providers need HTTP
-
-        resp = httpx.post(
+        resp = self._http().post(
             f"{self.base_url}/embeddings",
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={"model": self.model, "input": texts},
-            timeout=self.timeout,
         )
         resp.raise_for_status()
         data = sorted(resp.json()["data"], key=lambda d: d["index"])

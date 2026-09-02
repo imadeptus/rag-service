@@ -58,26 +58,42 @@ class RetrievedChunk:
     sources: tuple[str, ...]  # which rankers surfaced it: "bm25", "vector"
 
 
+@dataclass(frozen=True)
+class LexicalIndex:
+    """A BM25 model and the chunks it was built from, as one immutable pair.
+
+    The two must never be read separately: a reader that picked up a new
+    scorer beside the previous chunk list would zip mismatched lengths and
+    rank the wrong documents. Keeping them in one frozen object means a
+    rebuild is a single reference swap, and a reader either sees the whole
+    old index or the whole new one.
+    """
+
+    bm25: BM25
+    chunks: tuple[Chunk, ...]
+
+
 class HybridRetriever:
     def __init__(self, store: VectorStore, embedder: Embedder):
         self.store = store
         self.embedder = embedder
-        self._bm25: BM25 | None = None
-        self._bm25_chunks: list[Chunk] = []
+        self._index: LexicalIndex | None = None
 
     def refresh_lexical_index(self) -> None:
-        self._bm25_chunks = self.store.all_chunks()
-        corpus = [tokenize(c.text) for c in self._bm25_chunks]
-        self._bm25 = BM25(corpus) if corpus else None
+        chunks = tuple(self.store.all_chunks())
+        corpus = [tokenize(c.text) for c in chunks]
+        # One assignment: readers never observe a half-updated index.
+        self._index = LexicalIndex(BM25(corpus), chunks) if corpus else None
 
     def _bm25_ranking(self, query: str, top_k: int) -> list[Chunk]:
-        if self._bm25 is None:
+        if self._index is None:
             self.refresh_lexical_index()
-        if self._bm25 is None:
+        index = self._index  # bind once; a concurrent refresh cannot swap it under us
+        if index is None:
             return []
-        scores = self._bm25.get_scores(tokenize(query))
+        scores = index.bm25.get_scores(tokenize(query))
         ranked = sorted(
-            zip(self._bm25_chunks, scores, strict=True), key=lambda x: x[1], reverse=True
+            zip(index.chunks, scores, strict=True), key=lambda x: x[1], reverse=True
         )
         return [c for c, s in ranked[:top_k] if s > 0]
 

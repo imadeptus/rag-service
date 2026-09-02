@@ -13,6 +13,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Protocol
 
+import httpx
+
 from .config import Settings
 
 # USD per 1M tokens (input, output). Extend freely.
@@ -79,17 +81,24 @@ class OpenAICompatibleLLM:
         model: str,
         tracker: CostTracker,
         timeout: float = 60.0,
+        client: httpx.Client | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
         self.tracker = tracker
         self.timeout = timeout
+        self._client = client
+
+    def _http(self) -> httpx.Client:
+        """One client per provider: connections are reused across requests."""
+
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
 
     def complete(self, system: str, user: str) -> LLMResult:
-        import httpx  # lazy: only real providers need HTTP
-
-        resp = httpx.post(
+        resp = self._http().post(
             f"{self.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}"},
             json={
@@ -100,7 +109,6 @@ class OpenAICompatibleLLM:
                 ],
                 "temperature": 0.2,
             },
-            timeout=self.timeout,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -119,22 +127,27 @@ class GigaChatLLM:
     API_URL = "https://gigachat.devices.sberbank.ru/api/v1"
 
     def __init__(self, auth_key: str, scope: str, tracker: CostTracker,
-                 model: str = "GigaChat", verify_ssl: bool = True, timeout: float = 60.0):
+                 model: str = "GigaChat", verify_ssl: bool = True, timeout: float = 60.0,
+                 client: httpx.Client | None = None):
         self.auth_key = auth_key
         self.scope = scope
         self.model = model
         self.tracker = tracker
         self.verify_ssl = verify_ssl
         self.timeout = timeout
+        self._client = client
         self._token: str | None = None
         self._token_expires_at: float = 0.0
 
-    def _get_token(self) -> str:
-        import httpx  # lazy
+    def _http(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout, verify=self.verify_ssl)
+        return self._client
 
+    def _get_token(self) -> str:
         if self._token and time.time() < self._token_expires_at - 60:
             return self._token
-        resp = httpx.post(
+        resp = self._http().post(
             self.AUTH_URL,
             headers={
                 "Authorization": f"Basic {self.auth_key}",
@@ -142,8 +155,6 @@ class GigaChatLLM:
                 "Content-Type": "application/x-www-form-urlencoded",
             },
             data={"scope": self.scope},
-            verify=self.verify_ssl,
-            timeout=self.timeout,
         )
         resp.raise_for_status()
         data = resp.json()
@@ -152,10 +163,8 @@ class GigaChatLLM:
         return self._token
 
     def complete(self, system: str, user: str) -> LLMResult:
-        import httpx  # lazy
-
         token = self._get_token()
-        resp = httpx.post(
+        resp = self._http().post(
             f"{self.API_URL}/chat/completions",
             headers={"Authorization": f"Bearer {token}"},
             json={
@@ -166,8 +175,6 @@ class GigaChatLLM:
                 ],
                 "temperature": 0.2,
             },
-            verify=self.verify_ssl,
-            timeout=self.timeout,
         )
         resp.raise_for_status()
         data = resp.json()

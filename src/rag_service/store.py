@@ -5,6 +5,7 @@ infrastructure; Qdrant is a drop-in for real deployments (docker-compose.yml).
 """
 
 import math
+import threading
 import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -49,32 +50,47 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 class InMemoryStore:
+    """Thread-safe in-process store.
+
+    FastAPI runs synchronous endpoints in a worker thread pool, so /ingest and
+    /ask can touch this store at the same time. Without the lock, a read that
+    iterates the mapping while a write inserts into it raises
+    "dictionary changed size during iteration" mid-request.
+    """
+
     def __init__(self) -> None:
         self._items: dict[str, tuple[Chunk, list[float]]] = {}
+        self._lock = threading.RLock()
 
     def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors length mismatch")
-        for chunk, vec in zip(chunks, vectors, strict=True):
-            self._items[chunk.chunk_id] = (chunk, vec)
+        with self._lock:
+            for chunk, vec in zip(chunks, vectors, strict=True):
+                self._items[chunk.chunk_id] = (chunk, vec)
 
     def delete_doc(self, doc_id: str) -> None:
-        self._items = {
-            chunk_id: item
-            for chunk_id, item in self._items.items()
-            if item[0].doc_id != doc_id
-        }
+        with self._lock:
+            self._items = {
+                chunk_id: item
+                for chunk_id, item in self._items.items()
+                if item[0].doc_id != doc_id
+            }
 
     def search(self, vector: list[float], top_k: int) -> list[ScoredChunk]:
-        scored = [ScoredChunk(c, _cosine(vector, v)) for c, v in self._items.values()]
+        with self._lock:
+            snapshot = list(self._items.values())
+        scored = [ScoredChunk(c, _cosine(vector, v)) for c, v in snapshot]
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored[:top_k]
 
     def all_chunks(self) -> list[Chunk]:
-        return [c for c, _ in self._items.values()]
+        with self._lock:
+            return [c for c, _ in self._items.values()]
 
     def count(self) -> int:
-        return len(self._items)
+        with self._lock:
+            return len(self._items)
 
 
 class QdrantStore:

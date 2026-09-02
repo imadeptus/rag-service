@@ -7,11 +7,10 @@ branch = true
 source = ["src/rag_service"]
 
 [tool.coverage.report]
-# Ratchet, not an aspiration: the offline suite currently reaches ~78%.
-# The gap is the real-provider HTTP adapters (OpenAI-compatible, GigaChat)
-# and QdrantStore, which no offline test exercises. Raising this number
-# means adding httpx.MockTransport tests for them, not relaxing the check.
-fail_under = 75
+# Ratchet, not an aspiration: the offline suite reaches ~88%. The remaining
+# gap is QdrantStore, which needs a running Qdrant; the compose stack covers
+# it instead. Raise this number by adding tests, never lower it to pass.
+fail_under = 85
 show_missing = true
 skip_covered = true
 

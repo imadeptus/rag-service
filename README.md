@@ -41,11 +41,15 @@ and per-request cost tracking. Fully testable offline — CI needs zero API keys
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt        # runtime + Qdrant + lint/type/test
 pytest -q                                  # full offline test suite
 python eval/run_eval.py --k 3 --min-hit 0.85 --min-mrr 0.7
 uvicorn rag_service.api:app --app-dir src  # API on :8000
 ```
+
+`requirements.txt` is the runtime only; `requirements-qdrant.txt` adds the Qdrant
+backend, `requirements-dev.txt` adds the tooling. Every range is upper-bounded, so a
+breaking major cannot arrive silently.
 
 ```bash
 curl -X POST localhost:8000/ingest -H 'Content-Type: application/json' \
@@ -98,6 +102,31 @@ eval/              golden.jsonl + run_eval.py (hit@k, MRR)
 sample_docs/       five-document corpus used by evals and the quickstart
 tests/             offline suite: chunking, fusion, pipeline, cost, API
 ```
+
+## Quality gates
+
+CI runs two jobs on every push and pull request, both offline and without API keys.
+
+| Job | Checks |
+|---|---|
+| `quality` | `ruff check` · `mypy` · `pytest --cov` (gate 75%) · retrieval eval (hit@3 ≥ 0.85, MRR ≥ 0.7) |
+| `docker` | image builds, container answers `/health`, `/ingest` and `/ask`, and runs as uid `10001` |
+
+Run the same checks locally:
+
+```bash
+ruff check . && mypy && pytest -q --cov
+docker compose up -d --wait     # app + Qdrant, app waits for Qdrant to be healthy
+```
+
+The image is a two-stage build: dependencies are installed into a virtualenv in the
+builder, and the runtime stage copies only that virtualenv plus the source. It runs as
+a non-root user and declares a `HEALTHCHECK`, which is what `--wait` and the compose
+`depends_on: service_healthy` rely on.
+
+Coverage sits at ~78%. The uncovered remainder is the real-provider HTTP adapters
+(OpenAI-compatible, GigaChat) and `QdrantStore` — code no offline test exercises.
+Raising the gate means adding `httpx.MockTransport` tests, not relaxing the number.
 
 ## Roadmap
 

@@ -40,7 +40,7 @@ class BM25:
 
     def get_scores(self, query: list[str]) -> list[float]:
         scores = []
-        for freqs, dlen in zip(self.doc_freqs, self.doc_lens):
+        for freqs, dlen in zip(self.doc_freqs, self.doc_lens, strict=True):
             score = 0.0
             norm = self.k1 * (1 - self.b + self.b * dlen / (self.avg_len or 1.0))
             for term in query:
@@ -76,7 +76,9 @@ class HybridRetriever:
         if self._bm25 is None:
             return []
         scores = self._bm25.get_scores(tokenize(query))
-        ranked = sorted(zip(self._bm25_chunks, scores), key=lambda x: x[1], reverse=True)
+        ranked = sorted(
+            zip(self._bm25_chunks, scores, strict=True), key=lambda x: x[1], reverse=True
+        )
         return [c for c, s in ranked[:top_k] if s > 0]
 
     def _vector_ranking(self, query: str, top_k: int) -> list[Chunk]:

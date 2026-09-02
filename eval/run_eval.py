@@ -17,11 +17,12 @@ import argparse
 import json
 import pathlib
 import sys
+from typing import Any
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
-from rag_service.config import Settings  # noqa: E402
-from rag_service.pipeline import RagPipeline  # noqa: E402
+from rag_service.config import Settings
+from rag_service.pipeline import RagPipeline
 
 
 def load_golden(path: pathlib.Path) -> list[dict]:
@@ -37,7 +38,7 @@ def evaluate(
     docs_dir: pathlib.Path,
     golden_path: pathlib.Path,
     k: int,
-) -> dict[str, int | float | str | None]:
+) -> dict[str, Any]:
     pipe = RagPipeline(
         Settings(llm_provider="fake", emb_provider="fake", store_backend="memory")
     )

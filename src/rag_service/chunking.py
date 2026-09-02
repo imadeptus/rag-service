@@ -22,7 +22,9 @@ def _split_paragraphs(text: str) -> list[str]:
     return [p for p in parts if p]
 
 
-def chunk_document(doc_id: str, text: str, chunk_size: int = 700, overlap: int = 120) -> list[Chunk]:
+def chunk_document(
+    doc_id: str, text: str, chunk_size: int = 700, overlap: int = 120
+) -> list[Chunk]:
     if chunk_size <= 0:
         raise ValueError("chunk_size must be positive")
     if overlap >= chunk_size:

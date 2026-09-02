@@ -12,6 +12,7 @@ import hashlib
 import math
 from typing import Protocol
 
+from .config import Settings
 from .tokenization import tokenize
 
 
@@ -43,7 +44,14 @@ class FakeEmbedder:
 
 
 class OpenAICompatibleEmbedder:
-    def __init__(self, base_url: str, api_key: str, model: str, dim: int = 1536, timeout: float = 30.0):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        dim: int = 1536,
+        timeout: float = 30.0,
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
@@ -64,7 +72,7 @@ class OpenAICompatibleEmbedder:
         return [d["embedding"] for d in data]
 
 
-def build_embedder(settings) -> Embedder:
+def build_embedder(settings: Settings) -> Embedder:
     if settings.emb_provider == "openai-compatible":
         return OpenAICompatibleEmbedder(
             settings.emb_base_url, settings.emb_api_key, settings.emb_model, settings.emb_dim

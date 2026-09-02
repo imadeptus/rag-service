@@ -18,7 +18,9 @@ def test_health():
 
 def test_ingest_then_ask_flow():
     client = make_client()
-    resp = client.post("/ingest", json={"doc_id": "runbook", "text": "Staging listens on port 5433."})
+    resp = client.post(
+        "/ingest", json={"doc_id": "runbook", "text": "Staging listens on port 5433."}
+    )
     assert resp.status_code == 200
     assert resp.json()["chunks_indexed"] >= 1
 

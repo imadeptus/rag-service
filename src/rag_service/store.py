@@ -7,9 +7,10 @@ infrastructure; Qdrant is a drop-in for real deployments (docker-compose.yml).
 import math
 import uuid
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from .chunking import Chunk
+from .config import Settings
 
 
 @dataclass(frozen=True)
@@ -30,21 +31,31 @@ class VectorStore(Protocol):
     def count(self) -> int: ...
 
 
+def _chunk_from_payload(payload: dict[str, Any] | None) -> Chunk:
+    """Rebuild a Chunk from a Qdrant point payload."""
+
+    if payload is None:
+        raise ValueError("Qdrant point is missing its payload")
+    return Chunk(
+        payload["doc_id"], payload["chunk_id"], payload["text"], payload["position"]
+    )
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
     na = math.sqrt(sum(x * x for x in a)) or 1.0
     nb = math.sqrt(sum(y * y for y in b)) or 1.0
     return dot / (na * nb)
 
 
 class InMemoryStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self._items: dict[str, tuple[Chunk, list[float]]] = {}
 
     def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         if len(chunks) != len(vectors):
             raise ValueError("chunks and vectors length mismatch")
-        for chunk, vec in zip(chunks, vectors):
+        for chunk, vec in zip(chunks, vectors, strict=True):
             self._items[chunk.chunk_id] = (chunk, vec)
 
     def delete_doc(self, doc_id: str) -> None:
@@ -87,9 +98,14 @@ class QdrantStore:
             PointStruct(
                 id=str(uuid.uuid5(uuid.NAMESPACE_URL, c.chunk_id)),
                 vector=v,
-                payload={"doc_id": c.doc_id, "chunk_id": c.chunk_id, "text": c.text, "position": c.position},
+                payload={
+                    "doc_id": c.doc_id,
+                    "chunk_id": c.chunk_id,
+                    "text": c.text,
+                    "position": c.position,
+                },
             )
-            for c, v in zip(chunks, vectors)
+            for c, v in zip(chunks, vectors, strict=True)
         ]
         self.client.upsert(self.collection, points)
 
@@ -109,17 +125,17 @@ class QdrantStore:
         hits = self.client.query_points(self.collection, query=vector, limit=top_k).points
         out = []
         for h in hits:
-            p = h.payload
-            out.append(ScoredChunk(Chunk(p["doc_id"], p["chunk_id"], p["text"], p["position"]), h.score))
+            out.append(ScoredChunk(_chunk_from_payload(h.payload), h.score))
         return out
 
     def all_chunks(self) -> list[Chunk]:
         chunks, offset = [], None
         while True:
-            points, offset = self.client.scroll(self.collection, limit=256, offset=offset, with_payload=True)
+            points, offset = self.client.scroll(
+                self.collection, limit=256, offset=offset, with_payload=True
+            )
             for pt in points:
-                p = pt.payload
-                chunks.append(Chunk(p["doc_id"], p["chunk_id"], p["text"], p["position"]))
+                chunks.append(_chunk_from_payload(pt.payload))
             if offset is None:
                 return chunks
 
@@ -127,7 +143,7 @@ class QdrantStore:
         return self.client.count(self.collection).count
 
 
-def build_store(settings):
+def build_store(settings: Settings) -> VectorStore:
     if settings.store_backend == "qdrant":
         return QdrantStore(settings.qdrant_url, settings.collection, settings.emb_dim)
     return InMemoryStore()

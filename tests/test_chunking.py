@@ -1,3 +1,5 @@
+from itertools import pairwise
+
 from rag_service.chunking import chunk_document
 
 
@@ -47,7 +49,7 @@ def test_adjacent_chunks_preserve_maximum_overlap_for_eight_paragraphs():
     chunks = chunk_document("doc", "\n\n".join(paragraphs), chunk_size=140, overlap=30)
 
     assert len(chunks) >= 4
-    for previous, current in zip(chunks, chunks[1:]):
+    for previous, current in pairwise(chunks):
         max_tail = min(30, 140 - len(current.text.split("\n\n")[-1]) - 2)
         expected_tail = previous.text[-max_tail:] if max_tail > 0 else ""
         assert expected_tail

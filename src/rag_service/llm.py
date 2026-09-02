@@ -13,6 +13,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from .config import Settings
+
 # USD per 1M tokens (input, output). Extend freely.
 PRICE_TABLE: dict[str, tuple[float, float]] = {
     "deepseek-chat": (0.27, 1.10),
@@ -70,7 +72,14 @@ class FakeLLM:
 
 
 class OpenAICompatibleLLM:
-    def __init__(self, base_url: str, api_key: str, model: str, tracker: CostTracker, timeout: float = 60.0):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        tracker: CostTracker,
+        timeout: float = 60.0,
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model = model
@@ -97,7 +106,9 @@ class OpenAICompatibleLLM:
         data = resp.json()
         text = data["choices"][0]["message"]["content"]
         u = data.get("usage", {})
-        usage = self.tracker.add(self.model, u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
+        usage = self.tracker.add(
+            self.model, u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+        )
         return LLMResult(text=text, usage=usage)
 
 
@@ -162,13 +173,17 @@ class GigaChatLLM:
         data = resp.json()
         text = data["choices"][0]["message"]["content"]
         u = data.get("usage", {})
-        usage = self.tracker.add(self.model, u.get("prompt_tokens", 0), u.get("completion_tokens", 0))
+        usage = self.tracker.add(
+            self.model, u.get("prompt_tokens", 0), u.get("completion_tokens", 0)
+        )
         return LLMResult(text=text, usage=usage)
 
 
-def build_llm(settings, tracker: CostTracker) -> LLM:
+def build_llm(settings: Settings, tracker: CostTracker) -> LLM:
     if settings.llm_provider == "openai-compatible":
-        return OpenAICompatibleLLM(settings.llm_base_url, settings.llm_api_key, settings.llm_model, tracker)
+        return OpenAICompatibleLLM(
+            settings.llm_base_url, settings.llm_api_key, settings.llm_model, tracker
+        )
     if settings.llm_provider == "gigachat":
         return GigaChatLLM(settings.gigachat_auth_key, settings.gigachat_scope, tracker)
     return FakeLLM(tracker)

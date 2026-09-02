@@ -30,12 +30,44 @@ and per-request cost tracking. Fully testable offline — CI needs zero API keys
 
 ## Architecture
 
+```mermaid
+flowchart TD
+  D["docs"] --> C["chunking"]
+  C --> E["embeddings"]
+  E --> S[("store · memory or Qdrant")]
+  Q["query"] --> B["BM25"]
+  Q --> V["vector"]
+  S -.->|chunks| B
+  S -.->|vectors| V
+  B --> R{{"RRF fusion"}}
+  V --> R
+  R --> T["top-k chunks"]
+  T -->|scored| L["LLM"]
+  T -->|nothing scored| AB["abstain, no LLM call"]
+  L --> A["answer + citations + cost"]
+
+  classDef ing fill:#e2eef0,stroke:#216874,color:#0e2f36
+  classDef ask fill:#f3e9de,stroke:#8a5a2b,color:#3a2712
+  class D,C,E,S ing
+  class Q,B,V,R,T,L,A,AB ask
 ```
-            ingest                                 ask
-  docs ──► chunking ──► embeddings ──► store   query ──► BM25 ─┐
-             (paragraph-aware,          (in-memory │            ├─► RRF ─► top-k ─┬─► LLM ─► answer
-              overlap, citations)        or Qdrant)└──► vector ─┘                 └─► abstain (empty)
+
+<details>
+<summary>Same diagram as plain text — Mermaid only renders on github.com</summary>
+
 ```
+ingest
+  docs ──► chunking ──► embeddings ──► store
+           paragraph-aware,            in-memory
+           overlap, citations          or Qdrant
+
+ask
+  query ─┬─► BM25 ───┐
+         │           ├─► RRF ─► top-k ─┬─► LLM ─► answer
+         └─► vector ─┘                 └─► abstain (no context)
+```
+
+</details>
 
 ## Quickstart (offline, no keys)
 

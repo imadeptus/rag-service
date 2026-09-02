@@ -5,20 +5,64 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - name: Unit tests (offline, fake providers)
-        run: pytest -q
-        env:
-          PYTHONPATH: src
-      - name: Run retrieval quality gate
+          cache: pip
+      - name: Install development dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: mypy
+      - name: Unit tests (offline, fake providers) with coverage gate
+        run: pytest -q --cov --cov-report=term-missing
+      - name: Retrieval quality gate
         run: python eval/run_eval.py --k 3 --min-hit 0.85 --min-mrr 0.7
         env:
           PYTHONPATH: src
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t rag-service:ci .
+      - name: Boot the container and exercise the API
+        run: |
+          docker run -d --name rag -p 8000:8000 rag-service:ci
+          for i in $(seq 1 30); do
+            if curl -fsS localhost:8000/health > /dev/null; then break; fi
+            if [ "$i" = "30" ]; then
+              echo "service did not become healthy"; docker logs rag; exit 1
+            fi
+            sleep 1
+          done
+          curl -fsS -X POST localhost:8000/ingest \
+            -H 'Content-Type: application/json' \
+            -d '{"doc_id": "runbook", "text": "Staging DB listens on port 5433."}'
+          curl -fsS -X POST localhost:8000/ask \
+            -H 'Content-Type: application/json' \
+            -d '{"question": "which port does staging listen on?"}'
+      - name: Confirm the container does not run as root
+        run: test "$(docker exec rag id -u)" = "10001"
+      - name: Container logs
+        if: failure()
+        run: docker logs rag
+      - name: Teardown
+        if: always()
+        run: docker rm -f rag || true
